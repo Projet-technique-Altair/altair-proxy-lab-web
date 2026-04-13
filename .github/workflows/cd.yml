@@ -1,0 +1,46 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ${{ vars.GCP_ARTIFACT_REGISTRY_HOST }}/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO }}/altair-proxy-lab-web:${{ github.sha }}
+      K8S_NAMESPACE: ${{ vars.K8S_NAMESPACE || 'labs-web' }}
+      K8S_DEPLOYMENT_NAME: ${{ vars.K8S_DEPLOYMENT_NAME || 'altair-proxy-lab-web' }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker ${{ vars.GCP_ARTIFACT_REGISTRY_HOST }} --quiet
+      - name: Build image
+        run: docker build -t "$IMAGE" .
+      - name: Push image
+        run: docker push "$IMAGE"
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ vars.GKE_CLUSTER_NAME }}
+          location: ${{ vars.GKE_CLUSTER_LOCATION }}
+      - name: Apply manifests
+        run: kubectl apply -f k8s/deployment.yaml
+      - name: Set image
+        run: kubectl -n "$K8S_NAMESPACE" set image deployment/"$K8S_DEPLOYMENT_NAME" altair-proxy-lab-web="$IMAGE"
+      - name: Rollout status
+        run: kubectl -n "$K8S_NAMESPACE" rollout status deployment/"$K8S_DEPLOYMENT_NAME"
