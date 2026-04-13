@@ -11,33 +11,23 @@ permissions:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
-    env:
-      IMAGE: ${{ vars.GCP_ARTIFACT_REGISTRY_HOST }}/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO }}/altair-proxy-lab-web:${{ github.sha }}
-      K8S_NAMESPACE: ${{ vars.K8S_NAMESPACE || 'labs-web' }}
-      K8S_DEPLOYMENT_NAME: ${{ vars.K8S_DEPLOYMENT_NAME || 'altair-proxy-lab-web' }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: auth
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v2
-      - name: Configure Docker auth
-        run: gcloud auth configure-docker ${{ vars.GCP_ARTIFACT_REGISTRY_HOST }} --quiet
-      - name: Build image
-        run: docker build -t "$IMAGE" .
-      - name: Push image
-        run: docker push "$IMAGE"
-      - name: Get GKE credentials
-        uses: google-github-actions/get-gke-credentials@v2
-        with:
-          cluster_name: ${{ vars.GKE_CLUSTER_NAME }}
-          location: ${{ vars.GKE_CLUSTER_LOCATION }}
-      - name: Apply manifests
-        run: kubectl apply -f k8s/deployment.yaml
-      - name: Set image
-        run: kubectl -n "$K8S_NAMESPACE" set image deployment/"$K8S_DEPLOYMENT_NAME" altair-proxy-lab-web="$IMAGE"
-      - name: Rollout status
-        run: kubectl -n "$K8S_NAMESPACE" rollout status deployment/"$K8S_DEPLOYMENT_NAME"
+    uses: Projet-technique-Altair/altair-ci/.github/workflows/gke-microservice-cd.yml@main
+    with:
+      gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
+      artifact_registry_host: ${{ vars.GCP_ARTIFACT_REGISTRY_HOST }}
+      artifact_registry_repo: ${{ vars.GCP_ARTIFACT_REPO }}
+      workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+      deploy_service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      gke_cluster_name: ${{ vars.GKE_CLUSTER_NAME }}
+      gke_cluster_location: ${{ vars.GKE_CLUSTER_LOCATION }}
+
+      image_name: altair-proxy-lab-web
+      k8s_namespace: ${{ vars.K8S_NAMESPACE }}
+      k8s_deployment_name: ${{ vars.K8S_DEPLOYMENT_NAME }}
+      k8s_container_name: altair-proxy-lab-web
+
+      workdir: .
+      dockerfile: Dockerfile
+      platform: linux/amd64
+      manifest_path: k8s/deployment.yaml
