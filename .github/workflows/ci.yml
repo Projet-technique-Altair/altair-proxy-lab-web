@@ -11,4 +11,4 @@ permissions:
 
 jobs:
   ci:
-    uses: Projet-technique-Altair/altair-ci/.github/workflows/lab-api-ci.yml@main
+    uses: Projet-technique-Altair/altair-ci/.github/workflows/rust-ms.yml@main
