@@ -219,7 +219,7 @@ fn filter_request_header(
 
     if name.as_str().eq_ignore_ascii_case("cookie") {
         let raw = value.to_str().ok()?;
-        let filtered = strip_lab_web_cookies(raw, lab_web_cookie_name);
+        let filtered = strip_cookie_by_name(raw, lab_web_cookie_name);
 
         if filtered.is_empty() {
             return None;
@@ -261,7 +261,7 @@ fn is_hop_by_hop_header(name: &HeaderName) -> bool {
     )
 }
 
-fn strip_lab_web_cookies(cookie_header: &str, lab_web_cookie_name: &str) -> String {
+fn strip_cookie_by_name(cookie_header: &str, cookie_name: &str) -> String {
     cookie_header
         .split(';')
         .filter_map(|pair| {
@@ -274,7 +274,7 @@ fn strip_lab_web_cookies(cookie_header: &str, lab_web_cookie_name: &str) -> Stri
             let name = parts.next()?.trim();
             let value = parts.next()?.trim();
 
-            if is_lab_web_cookie_name(name, lab_web_cookie_name) || value.is_empty() {
+            if name == cookie_name || value.is_empty() {
                 None
             } else {
                 Some(format!("{name}={value}"))
@@ -284,21 +284,12 @@ fn strip_lab_web_cookies(cookie_header: &str, lab_web_cookie_name: &str) -> Stri
         .join("; ")
 }
 
-fn is_lab_web_cookie_name(name: &str, base_name: &str) -> bool {
-    if name == base_name {
-        return true;
-    }
-
-    name.strip_prefix(base_name)
-        .is_some_and(|suffix| suffix.starts_with('_'))
-}
-
 #[cfg(test)]
 mod tests {
     use axum::http::{HeaderName, HeaderValue, StatusCode, Uri};
 
     use super::{
-        build_session_service_target_url, filter_request_header, strip_lab_web_cookies,
+        build_session_service_target_url, filter_request_header, strip_cookie_by_name,
         validate_container_id, validate_lab_relative_path,
     };
 
@@ -353,23 +344,13 @@ mod tests {
     }
 
     #[test]
-    fn strip_lab_web_cookies_keeps_lab_application_cookies() {
-        let filtered = strip_lab_web_cookies(
+    fn strip_cookie_by_name_keeps_lab_application_cookies() {
+        let filtered = strip_cookie_by_name(
             "altair_web_session=token; unlocked=1; theme=dark",
             "altair_web_session",
         );
 
         assert_eq!(filtered, "unlocked=1; theme=dark");
-    }
-
-    #[test]
-    fn strip_lab_web_cookies_removes_scoped_cookie_variant() {
-        let filtered = strip_lab_web_cookies(
-            "altair_web_session_7f30fd46-2ed8-4df1-a713-4f939d4d64e8=token; unlocked=1",
-            "altair_web_session",
-        );
-
-        assert_eq!(filtered, "unlocked=1");
     }
 
     #[test]
