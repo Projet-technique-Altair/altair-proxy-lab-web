@@ -1,9 +1,19 @@
-use tower_http::cors::{Any, CorsLayer};
+use axum::http::HeaderValue;
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing_subscriber::EnvFilter;
 
 mod routes;
 
 const DEFAULT_PORT: &str = "8086";
+const DEFAULT_ALLOWED_ORIGINS: &str = "http://localhost:5173,http://localhost:3000";
+
+fn parse_allowed_origins() -> Vec<HeaderValue> {
+    std::env::var("ALLOWED_ORIGINS")
+        .unwrap_or_else(|_| DEFAULT_ALLOWED_ORIGINS.to_string())
+        .split(',')
+        .filter_map(|origin| HeaderValue::from_str(origin.trim()).ok())
+        .collect()
+}
 
 #[tokio::main]
 async fn main() {
@@ -12,7 +22,7 @@ async fn main() {
         .init();
 
     let cors = CorsLayer::new()
-        .allow_origin(Any)
+        .allow_origin(AllowOrigin::list(parse_allowed_origins()))
         .allow_methods(Any)
         .allow_headers(Any);
 

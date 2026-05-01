@@ -20,10 +20,22 @@ spec:
         app: altair-proxy-lab-web
     spec:
       serviceAccountName: altair-proxy-lab-web
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: altair-proxy-lab-web
           image: europe-west9-docker.pkg.dev/altair-isen/altair-repo/altair-proxy-lab-web:latest
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           env:
             - name: PORT
               value: "8086"
