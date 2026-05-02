@@ -4,12 +4,10 @@ COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 RUN cargo build --release --locked
 
-FROM debian:bookworm-slim
+FROM gcr.io/distroless/cc-debian12:nonroot
 WORKDIR /app
-RUN apt-get update \
-  && apt-get install -y ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/target/release/altair-proxy-lab-web /usr/local/bin/altair-proxy-lab-web
 ENV PORT=8086
 EXPOSE 8086
+USER nonroot:nonroot
 CMD ["/usr/local/bin/altair-proxy-lab-web"]
