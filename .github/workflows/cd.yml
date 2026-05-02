@@ -1,9 +1,16 @@
 name: CD
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Tag de l'image a redeployer manuellement (sha ou vN)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -11,6 +18,7 @@ permissions:
 
 jobs:
   deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     uses: Projet-technique-Altair/altair-ci/.github/workflows/gke-microservice-cd.yml@main
     with:
       gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
@@ -23,11 +31,8 @@ jobs:
       gke_cluster_location: ${{ vars.GKE_CLUSTER_LOCATION }}
 
       image_name: altair-proxy-lab-web
+      image_tag: ${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || '' }}
       k8s_namespace: ${{ vars.K8S_NAMESPACE }}
       k8s_deployment_name: ${{ vars.K8S_DEPLOYMENT_NAME }}
       k8s_container_name: altair-proxy-lab-web
-
-      workdir: .
-      dockerfile: Dockerfile
-      platform: linux/amd64
       manifest_path: k8s/deployment.yaml
